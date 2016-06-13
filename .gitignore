@@ -1,2 +1,10 @@
+<<<<<<< ca5fa76e6884e4e26d93a85b7da73c3783a00eef
 build/*
 
+=======
+CMakeCache.txt
+CMakeFiles/
+Makefile
+out/
+*.cmake
+>>>>>>> Added .gitignore
