@@ -1,10 +1,6 @@
-<<<<<<< HEAD
+build/
 CMakeCache.txt
 CMakeFiles/
 Makefile
 out/
 *.cmake
-=======
-build/*
-
->>>>>>> c9cccdfadf568fe37b33f1211cb4ce9ccbad1a1f
