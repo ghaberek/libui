@@ -1,6 +1,14 @@
 build/
 CMakeCache.txt
 CMakeFiles/
+libui.dir/
 Makefile
 out/
+Win32/
 *.cmake
+*.db
+*.filters
+*.opendb
+*.user
+*.vcxproj
+libui.sln
