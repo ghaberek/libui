@@ -5,7 +5,7 @@ struct formChild {
 	uiControl *c;
 	HWND label;
 	int stretchy;
-	intmax_t height;
+	int height;
 };
 
 struct uiForm {
@@ -34,15 +34,16 @@ static void formPadding(uiForm *f, int *xpadding, int *ypadding)
 static void formRelayout(uiForm *f)
 {
 	RECT r;
-	intmax_t x, y, width, height;
+	int x, y, width, height;
 	int xpadding, ypadding;
-	uintmax_t nStretchy;
-	intmax_t labelwid, stretchyht;
-	intmax_t thiswid;
-	uintmax_t i;
-	intmax_t minimumWidth, minimumHeight;
+	int nStretchy;
+	int labelwid, stretchyht;
+	int thiswid;
+	int i;
+	int minimumWidth, minimumHeight;
 	uiWindowsSizing sizing;
 	int labelht, labelyoff;
+	int nVisible;
 
 	if (f->controls->size() == 0)
 		return;
@@ -53,22 +54,22 @@ static void formRelayout(uiForm *f)
 	width = r.right - r.left;
 	height = r.bottom - r.top;
 
-	// -1) get this Form's padding
+	// 0) get this Form's padding
 	formPadding(f, &xpadding, &ypadding);
-
-	// 0) inset the available rect by the needed padding
-	// TODO this is incorrect if any controls are hidden
-	width -= xpadding;
-	height -= (f->controls->size() - 1) * ypadding;
 
 	// 1) get width of labels and height of non-stretchy controls
 	// this will tell us how much space will be left for controls
 	labelwid = 0;
 	stretchyht = height;
 	nStretchy = 0;
+	nVisible = 0;
 	for (struct formChild &fc : *(f->controls)) {
-		if (!uiControlVisible(fc.c))
+		if (!uiControlVisible(fc.c)) {
+			ShowWindow(fc.label, SW_HIDE);
 			continue;
+		}
+		ShowWindow(fc.label, SW_SHOW);
+		nVisible++;
 		thiswid = uiWindowsWindowTextWidth(fc.label);
 		if (labelwid < thiswid)
 			labelwid = thiswid;
@@ -80,8 +81,15 @@ static void formRelayout(uiForm *f)
 		fc.height = minimumHeight;
 		stretchyht -= minimumHeight;
 	}
+	if (nVisible == 0)		// nothing to do
+		return;
 
-	// 2) now get the width of controls and the height of stretchy controls
+	// 2) inset the available rect by the needed padding
+	width -= xpadding;
+	height -= (nVisible - 1) * ypadding;
+	stretchyht -= (nVisible - 1) * ypadding;
+
+	// 3) now get the width of controls and the height of stretchy controls
 	width -= labelwid;
 	if (nStretchy != 0) {
 		stretchyht /= nStretchy;
@@ -93,12 +101,12 @@ static void formRelayout(uiForm *f)
 		}
 	}
 
-	// 3) get the y offset
+	// 4) get the y offset
 	labelyoff = labelYOffset;
 	uiWindowsGetSizing(f->hwnd, &sizing);
 	uiWindowsSizingDlgUnitsToPixels(&sizing, NULL, &labelyoff);
 
-	// 4) now we can position controls
+	// 5) now we can position controls
 	// first, make relative to the top-left corner of the container
 	// also prefer left alignment on Windows
 	x = labelwid + xpadding;
@@ -152,18 +160,19 @@ static void uiFormSyncEnableState(uiWindowsControl *c, int enabled)
 
 uiWindowsControlDefaultSetParentHWND(uiForm)
 
-static void uiFormMinimumSize(uiWindowsControl *c, intmax_t *width, intmax_t *height)
+static void uiFormMinimumSize(uiWindowsControl *c, int *width, int *height)
 {
 	uiForm *f = uiForm(c);
 	int xpadding, ypadding;
-	uintmax_t nStretchy;
+	int nStretchy;
 	// these two contain the largest minimum width and height of all stretchy controls in the form
 	// all stretchy controls will use this value to determine the final minimum size
-	intmax_t maxLabelWidth, maxControlWidth;
-	intmax_t maxStretchyHeight;
-	intmax_t labelwid;
-	uintmax_t i;
-	intmax_t minimumWidth, minimumHeight;
+	int maxLabelWidth, maxControlWidth;
+	int maxStretchyHeight;
+	int labelwid;
+	int i;
+	int minimumWidth, minimumHeight;
+	int nVisible;
 	uiWindowsSizing sizing;
 
 	*width = 0;
@@ -174,20 +183,17 @@ static void uiFormMinimumSize(uiWindowsControl *c, intmax_t *width, intmax_t *he
 	// 0) get this Form's padding
 	formPadding(f, &xpadding, &ypadding);
 
-	// 1) initialize the desired rect with the needed padding
-	// TODO this is wrong if any controls are hidden
-	*width = xpadding;
-	*height = (f->controls->size() - 1) * ypadding;
-
-	// 2) determine the longest width of all controls and labels; add in the height of non-stretchy controls and get (but not add in) the largest heights of stretchy controls
+	// 1) determine the longest width of all controls and labels; add in the height of non-stretchy controls and get (but not add in) the largest heights of stretchy controls
 	// we still add in like direction of stretchy controls
 	nStretchy = 0;
 	maxLabelWidth = 0;
 	maxControlWidth = 0;
 	maxStretchyHeight = 0;
+	nVisible = 0;
 	for (const struct formChild &fc : *(f->controls)) {
 		if (!uiControlVisible(fc.c))
 			continue;
+		nVisible++;
 		labelwid = uiWindowsWindowTextWidth(fc.label);
 		if (maxLabelWidth < labelwid)
 			maxLabelWidth = labelwid;
@@ -202,7 +208,13 @@ static void uiFormMinimumSize(uiWindowsControl *c, intmax_t *width, intmax_t *he
 		if (!fc.stretchy)
 			*height += minimumHeight;
 	}
+	if (nVisible == 0)		// nothing to show; return 0x0
+		return;
 	*width += maxLabelWidth + maxControlWidth;
+
+	// 2) outset the desired rect with the needed padding
+	*width += xpadding;
+	*height += (nVisible - 1) * ypadding;
 
 	// 3) and now we can add in stretchy controls
 	*height += nStretchy * maxStretchyHeight;
@@ -222,11 +234,17 @@ static void uiFormMinimumSizeChanged(uiWindowsControl *c)
 uiWindowsControlDefaultLayoutRect(uiForm)
 uiWindowsControlDefaultAssignControlIDZOrder(uiForm)
 
+static void uiFormChildVisibilityChanged(uiWindowsControl *c)
+{
+	// TODO eliminate the redundancy
+	uiWindowsControlMinimumSizeChanged(c);
+}
+
 static void formArrangeChildren(uiForm *f)
 {
 	LONG_PTR controlID;
 	HWND insertAfter;
-	uintmax_t i;
+	int i;
 
 	controlID = 100;
 	insertAfter = NULL;
@@ -248,11 +266,25 @@ void uiFormAppend(uiForm *f, const char *label, uiControl *c, int stretchy)
 		SS_LEFT | SS_NOPREFIX,
 		hInstance, NULL,
 		TRUE);
+	uiFree(wlabel);
 	uiWindowsEnsureSetParentHWND(fc.label, f->hwnd);
 	fc.stretchy = stretchy;
 	uiControlSetParent(fc.c, uiControl(f));
 	uiWindowsControlSetParentHWND(uiWindowsControl(fc.c), f->hwnd);
 	f->controls->push_back(fc);
+	formArrangeChildren(f);
+	uiWindowsControlMinimumSizeChanged(uiWindowsControl(f));
+}
+
+void uiFormDelete(uiForm *f, int index)
+{
+	struct formChild fc;
+
+	fc = (*(f->controls))[index];
+	uiControlSetParent(fc.c, NULL);
+	uiWindowsControlSetParentHWND(uiWindowsControl(fc.c), NULL);
+	uiWindowsEnsureDestroyWindow(fc.label);
+	f->controls->erase(f->controls->begin() + index);
 	formArrangeChildren(f);
 	uiWindowsControlMinimumSizeChanged(uiWindowsControl(f));
 }

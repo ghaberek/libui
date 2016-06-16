@@ -16,7 +16,22 @@ This README is being written.<br>
 
 ## Updates
 
-*Note that today's entry may be updated later today.*
+*Note that today's entry may be updated later today Eastern Time.*
+
+* **15 June 2016**
+	* Added `uiFormDelete()`; thanks to @emersion.
+
+* **14 June 2016**
+	* uiDarwinControl now has a `ChildVisibilityChanged()` method and a corresponding `NotifyVisibilityChanged()` function that is called by the default show/hide handlers. This is used to make visibility changes work on OS X; uiBox, uiForm, and uiGrid all respect these now.
+	* The same has been done on the Windows side as well.
+	* Hiding and showing controls and padding calculations are now correct on Windows at long last.
+	* Hiding a control in a uiForm now hides its label on all platforms.
+
+* **13 June 2016**
+	* `intmax_t` and `uintmax_t` are no longer used for libui API functions; now we use `int`. This should make things much easier for bindings. `int` should be at least 32 bits wide; this should be sufficient for all but the most extreme cases.
+
+* **12 June 2016**
+	* Added `uiGrid`, a new container control that arranges controls in rows and columns, with stretchy ("expanding") rows, stretchy ("expanding") columns, cells that span rows and columns, and cells whose content is aligned in either direction rather than just filling. It's quite powerful, is it? =P
 
 * **8 June 2016**
 	* Added `uiForm`, a new container control that arranges controls vertically, with properly aligned labels on each. Have fun!

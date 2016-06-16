@@ -41,8 +41,8 @@ struct uiArea {
 	uiAreaHandler *ah;
 
 	gboolean scrolling;
-	intmax_t scrollWidth;
-	intmax_t scrollHeight;
+	int scrollWidth;
+	int scrollHeight;
 
 	// note that this is a pointer; see above
 	clickCounter *cc;
@@ -251,6 +251,9 @@ static gboolean areaWidget_button_press_event(GtkWidget *w, GdkEventButton *e)
 		"gtk-double-click-distance", &maxDistance,
 		NULL);
 	// don't unref settings; it's transfer-none (thanks gregier in irc.gimp.net/#gtk+)
+	// e->time is guint32
+	// e->x and e->y are floating-point; just make them 32-bit integers
+	// maxTime and maxDistance... are gint, which *should* fit, hopefully...
 	me.Count = clickCounterClick(a->cc, me.Down,
 		e->x, e->y,
 		e->time, maxTime,
@@ -482,7 +485,7 @@ static void areaWidget_class_init(areaWidgetClass *class)
 
 uiUnixControlAllDefaults(uiArea)
 
-void uiAreaSetSize(uiArea *a, intmax_t width, intmax_t height)
+void uiAreaSetSize(uiArea *a, int width, int height)
 {
 	if (!a->scrolling)
 		userbug("You cannot call uiAreaSetSize() on a non-scrolling uiArea. (area: %p)", a);
@@ -522,7 +525,7 @@ uiArea *uiNewArea(uiAreaHandler *ah)
 	return a;
 }
 
-uiArea *uiNewScrollingArea(uiAreaHandler *ah, intmax_t width, intmax_t height)
+uiArea *uiNewScrollingArea(uiAreaHandler *ah, int width, int height)
 {
 	uiArea *a;
 

@@ -23,6 +23,7 @@ extern uiBox *newVerticalBox(void);
 extern uiTab *newTab(void);
 extern uiGroup *newGroup(const char *);
 extern uiForm *newForm(void);
+extern uiGrid *newGrid(void);
 
 // menus.c
 extern uiMenuItem *shouldQuitItem;
@@ -49,7 +50,7 @@ extern uiBox *makePage5(uiWindow *);
 extern uiBox *makePage6(void);
 
 // drawtests.c
-extern void runDrawTest(intmax_t, uiAreaDrawParams *);
+extern void runDrawTest(int, uiAreaDrawParams *);
 extern void populateComboboxWithTests(uiCombobox *);
 
 // page7.c
@@ -81,3 +82,6 @@ extern uiBox *makePage12(void);
 
 // page13.c
 extern uiBox *makePage13(void);
+
+// page14.c
+extern uiTab *makePage14(void);

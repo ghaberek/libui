@@ -23,7 +23,6 @@
 	uiForm *f;
 	NSMutableArray *children;
 	int padded;
-	uintmax_t nStretchy;
 
 	NSLayoutConstraint *first;
 	NSMutableArray *inBetweens;
@@ -40,11 +39,12 @@
 - (CGFloat)paddingAmount;
 - (void)establishOurConstraints;
 - (void)append:(NSString *)label c:(uiControl *)c stretchy:(int)stretchy;
-//TODO- (void)delete:(uintmax_t)n;
+- (void)delete:(int)n;
 - (int)isPadded;
 - (void)setPadded:(int)p;
 - (BOOL)hugsTrailing;
 - (BOOL)hugsBottom;
+- (int)nStretchy;
 @end
 
 struct uiForm {
@@ -123,7 +123,6 @@ struct uiForm {
 		self->f = ff;
 		self->padded = 0;
 		self->children = [NSMutableArray new];
-		self->nStretchy = 0;
 
 		self->inBetweens = [NSMutableArray new];
 		self->widths = [NSMutableArray new];
@@ -212,7 +211,6 @@ struct uiForm {
 	CGFloat padding;
 	NSView *prev, *prevlabel;
 	NSLayoutConstraint *c;
-	NSLayoutRelation relation;
 
 	[self removeOurConstraints];
 	if ([self->children count] == 0)
@@ -222,6 +220,9 @@ struct uiForm {
 	// first arrange the children vertically and make them the same width
 	prev = nil;
 	for (fc in self->children) {
+		[fc setHidden:!uiControlVisible(fc.c)];
+		if (!uiControlVisible(fc.c))
+			continue;
 		if (prev == nil) {			// first view
 			self->first = mkConstraint(self, NSLayoutAttributeTop,
 				NSLayoutRelationEqual,
@@ -260,11 +261,10 @@ struct uiForm {
 		prev = [fc view];
 		prevlabel = fc;
 	}
-	relation = NSLayoutRelationEqual;
-	if (self->nStretchy != 0)
-		relation = NSLayoutRelationLessThanOrEqual;
+	if (prev == nil)		// all hidden; act as if nothing there
+		return;
 	self->last = mkConstraint(prev, NSLayoutAttributeBottom,
-		relation,
+		NSLayoutRelationEqual,
 		self, NSLayoutAttributeBottom,
 		1, 0,
 		@"uiForm last vertical constraint");
@@ -273,6 +273,8 @@ struct uiForm {
 
 	// now arrange the controls horizontally
 	for (fc in self->children) {
+		if (!uiControlVisible(fc.c))
+			continue;
 		c = mkConstraint(self, NSLayoutAttributeLeading,
 			NSLayoutRelationEqual,
 			fc, NSLayoutAttributeLeading,
@@ -314,6 +316,27 @@ struct uiForm {
 		[self->trailings addObject:c];
 	}
 
+	// and make all stretchy controls have the same height
+	prev = nil;
+	for (fc in self->children) {
+		if (!uiControlVisible(fc.c))
+			continue;
+		if (!fc.stretchy)
+			continue;
+		if (prev == nil) {
+			prev = [fc view];
+			continue;
+		}
+		c = mkConstraint([fc view], NSLayoutAttributeHeight,
+			NSLayoutRelationEqual,
+			prev, NSLayoutAttributeHeight,
+			1, 0,
+			@"uiForm stretchy constraint");
+		[self addConstraint:c];
+		// TODO make a dedicated array for this
+		[self->leadings addObject:c];
+	}
+
 	// we don't arrange the labels vertically; that's done when we add the control since those constraints don't need to change (they just need to be at their baseline)
 }
 
@@ -322,7 +345,7 @@ struct uiForm {
 	formChild *fc;
 	NSLayoutPriority priority;
 	NSLayoutAttribute attribute;
-	uintmax_t oldnStretchy;
+	int oldnStretchy;
 
 	fc = [[formChild alloc] initWithLabel:newLabel(label)];
 	fc.c = c;
@@ -360,20 +383,39 @@ struct uiForm {
 		@"uiForm baseline constraint");
 	[self addConstraint:fc.baseline];
 
+	oldnStretchy = [self nStretchy];
 	[self->children addObject:fc];
 
 	[self establishOurConstraints];
-	if (fc.stretchy) {
-		oldnStretchy = self->nStretchy;
-		self->nStretchy++;
+	if (fc.stretchy)
 		if (oldnStretchy == 0)
 			uiDarwinNotifyEdgeHuggingChanged(uiDarwinControl(self->f));
-	}
 
 	[fc release];		// we don't need the initial reference now
 }
 
-//TODO- (void)delete:(uintmax_t)n
+- (void)delete:(int)n
+{
+	formChild *fc;
+	int stretchy;
+
+	fc = (formChild *) [self->children objectAtIndex:n];
+	stretchy = fc.stretchy;
+
+	uiControlSetParent(fc.c, NULL);
+	uiDarwinControlSetSuperview(uiDarwinControl(fc.c), nil);
+
+	uiDarwinControlSetHuggingPriority(uiDarwinControl(fc.c), fc.oldHorzHuggingPri, NSLayoutConstraintOrientationHorizontal);
+	uiDarwinControlSetHuggingPriority(uiDarwinControl(fc.c), fc.oldVertHuggingPri, NSLayoutConstraintOrientationVertical);
+
+	[fc onDestroy];
+	[self->children removeObjectAtIndex:n];
+
+	[self establishOurConstraints];
+	if (stretchy)
+		if ([self nStretchy] == 0)
+			uiDarwinNotifyEdgeHuggingChanged(uiDarwinControl(self->f));
+}
 
 - (int)isPadded
 {
@@ -401,7 +443,22 @@ struct uiForm {
 - (BOOL)hugsBottom
 {
 	// only hug if we have stretchy
-	return self->nStretchy != 0;
+	return [self nStretchy] != 0;
+}
+
+- (int)nStretchy
+{
+	formChild *fc;
+	int n;
+
+	n = 0;
+	for (fc in self->children) {
+		if (!uiControlVisible(fc.c))
+			continue;
+		if (fc.stretchy)
+			n++;
+	}
+	return n;
 }
 
 @end
@@ -461,6 +518,13 @@ static void uiFormChildEdgeHuggingChanged(uiDarwinControl *c)
 uiDarwinControlDefaultHuggingPriority(uiForm, view)
 uiDarwinControlDefaultSetHuggingPriority(uiForm, view)
 
+static void uiFormChildVisibilityChanged(uiDarwinControl *c)
+{
+	uiForm *f = uiForm(c);
+
+	[f->view establishOurConstraints];
+}
+
 void uiFormAppend(uiForm *f, const char *label, uiControl *c, int stretchy)
 {
 	// LONGTERM on other platforms
@@ -468,6 +532,11 @@ void uiFormAppend(uiForm *f, const char *label, uiControl *c, int stretchy)
 	if (c == NULL)
 		userbug("You cannot add NULL to a uiForm.");
 	[f->view append:toNSString(label) c:c stretchy:stretchy];
+}
+
+void uiFormDelete(uiForm *f, int n)
+{
+	[f->view delete:n];
 }
 
 int uiFormPadded(uiForm *f)

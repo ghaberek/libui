@@ -3,11 +3,13 @@
 
 struct formChild {
 	uiControl *c;
+	int stretchy;
 	GtkWidget *label;
 	gboolean oldhexpand;
 	GtkAlign oldhalign;
 	gboolean oldvexpand;
 	GtkAlign oldvalign;
+	GBinding *labelBinding;
 };
 
 struct uiForm {
@@ -17,7 +19,6 @@ struct uiForm {
 	GtkGrid *grid;
 	GArray *children;
 	int padded;
-	// TODO OS X is missing this
 	GtkSizeGroup *stretchygroup;		// ensures all stretchy controls have the same size
 };
 
@@ -37,7 +38,6 @@ static void uiFormDestroy(uiControl *c)
 	for (i = 0; i < f->children->len; i++) {
 		fc = ctrl(f, i);
 		uiControlSetParent(fc->c, NULL);
-		// and make sure the widget itself stays alive
 		uiUnixControlSetContainer(uiUnixControl(fc->c), f->container, TRUE);
 		uiControlDestroy(fc->c);
 		gtk_widget_destroy(fc->label);
@@ -56,6 +56,7 @@ void uiFormAppend(uiForm *f, const char *label, uiControl *c, int stretchy)
 
 	fc.c = c;
 	widget = GTK_WIDGET(uiControlHandle(fc.c));
+	fc.stretchy = stretchy;
 	fc.oldhexpand = gtk_widget_get_hexpand(widget);
 	fc.oldhalign = gtk_widget_get_halign(widget);
 	fc.oldvexpand = gtk_widget_get_vexpand(widget);
@@ -84,7 +85,10 @@ void uiFormAppend(uiForm *f, const char *label, uiControl *c, int stretchy)
 	gtk_grid_attach(f->grid, fc.label,
 		0, row,
 		1, 1);
-	gtk_widget_show_all(fc.label);
+	// and make them share visibility so if the control is hidden, so is its label
+	fc.labelBinding = g_object_bind_property(GTK_WIDGET(uiControlHandle(fc.c)), "visible",
+		fc.label, "visible",
+		G_BINDING_SYNC_CREATE);
 
 	uiControlSetParent(fc.c, uiControl(f));
 	uiUnixControlSetContainer(uiUnixControl(fc.c), f->container, FALSE);
@@ -95,6 +99,29 @@ void uiFormAppend(uiForm *f, const char *label, uiControl *c, int stretchy)
 		"left-attach", 1,
 		"top-attach", row,
 		NULL);
+}
+
+void uiFormDelete(uiForm *f, int index)
+{
+	struct formChild *fc;
+	GtkWidget *widget;
+
+	fc = ctrl(f, index);
+	widget = GTK_WIDGET(uiControlHandle(fc->c));
+
+	gtk_widget_destroy(fc->label);
+
+	uiControlSetParent(fc->c, NULL);
+	uiUnixControlSetContainer(uiUnixControl(fc->c), f->container, TRUE);
+
+	if (fc->stretchy)
+		gtk_size_group_remove_widget(f->stretchygroup, widget);
+	gtk_widget_set_hexpand(widget, fc->oldhexpand);
+	gtk_widget_set_halign(widget, fc->oldhalign);
+	gtk_widget_set_vexpand(widget, fc->oldvexpand);
+	gtk_widget_set_valign(widget, fc->oldvalign);
+
+	g_array_remove_index(f->children, index);
 }
 
 int uiFormPadded(uiForm *f)

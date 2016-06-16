@@ -89,11 +89,11 @@ static void uiGroupSyncEnableState(uiWindowsControl *c, int enabled)
 
 uiWindowsControlDefaultSetParentHWND(uiGroup)
 
-static void uiGroupMinimumSize(uiWindowsControl *c, intmax_t *width, intmax_t *height)
+static void uiGroupMinimumSize(uiWindowsControl *c, int *width, int *height)
 {
 	uiGroup *g = uiGroup(c);
 	int mx, mtop, mbottom;
-	intmax_t labelWidth;
+	int labelWidth;
 
 	*width = 0;
 	*height = 0;
@@ -120,6 +120,12 @@ static void uiGroupMinimumSizeChanged(uiWindowsControl *c)
 
 uiWindowsControlDefaultLayoutRect(uiGroup)
 uiWindowsControlDefaultAssignControlIDZOrder(uiGroup)
+
+static void uiGroupChildVisibilityChanged(uiWindowsControl *c)
+{
+	// TODO eliminate the redundancy
+	uiWindowsControlMinimumSizeChanged(c);
+}
 
 char *uiGroupTitle(uiGroup *g)
 {
@@ -164,7 +170,7 @@ static LRESULT CALLBACK groupSubProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 	uiGroup *g = uiGroup(dwRefData);
 	WINDOWPOS *wp = (WINDOWPOS *) lParam;
 	MINMAXINFO *mmi = (MINMAXINFO *) lParam;
-	intmax_t minwid, minht;
+	int minwid, minht;
 	LRESULT lResult;
 
 	if (handleParentMessages(hwnd, uMsg, wParam, lParam, &lResult) != FALSE)

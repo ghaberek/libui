@@ -73,10 +73,10 @@ static void capture(uiArea *a, BOOL capturing)
 			logLastError(L"error releasing capture on drag");
 }
 
-static void areaMouseEvent(uiArea *a, uintmax_t down, uintmax_t  up, WPARAM wParam, LPARAM lParam)
+static void areaMouseEvent(uiArea *a, int down, int  up, WPARAM wParam, LPARAM lParam)
 {
 	uiAreaMouseEvent me;
-	uintmax_t button;
+	int button;
 	POINT clientpt;
 	RECT client;
 	BOOL inClient;
@@ -117,6 +117,7 @@ static void areaMouseEvent(uiArea *a, uintmax_t down, uintmax_t  up, WPARAM wPar
 	if (me.Down != 0)
 		// GetMessageTime() returns LONG and GetDoubleClckTime() returns UINT, which are int32 and uint32, respectively, but we don't need to worry about the signedness because for the same bit widths and two's complement arithmetic, s1-s2 == u1-u2 if bits(s1)==bits(s2) and bits(u1)==bits(u2) (and Windows requires two's complement: http://blogs.msdn.com/b/oldnewthing/archive/2005/05/27/422551.aspx)
 		// signedness isn't much of an issue for these calls anyway because http://stackoverflow.com/questions/24022225/what-are-the-sign-extension-rules-for-calling-windows-api-functions-stdcall-t and that we're only using unsigned values (think back to how you (didn't) handle signedness in assembly language) AND because of the above AND because the statistics below (time interval and width/height) really don't make sense if negative
+		// GetSystemMetrics() returns int, which is int32
 		me.Count = clickCounterClick(&(a->cc), me.Down,
 			me.X, me.Y,
 			GetMessageTime(), GetDoubleClickTime(),
