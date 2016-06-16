@@ -1,2 +1,14 @@
-build/*
-
+build/
+CMakeFiles/
+libui.dir/
+out/
+Win32/
+*.cmake
+*.db
+*.filters
+*.opendb
+*.user
+*.vcxproj
+CMakeCache.txt
+libui.sln
+Makefile
