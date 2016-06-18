@@ -77,6 +77,11 @@ void uiMain(void)
 		;
 }
 
+void uiMainSteps(void)
+{
+	// don't need to do anything here
+}
+
 static int peekMessage(MSG *msg)
 {
 	BOOL res;

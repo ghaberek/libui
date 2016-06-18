@@ -49,10 +49,12 @@ int main(int argc, char *argv[])
 	uiBox *page6, *page7, *page8, *page9, *page10;
 	uiBox *page11, *page12, *page13;
 	uiTab *page14;
+	uiBox *page15;
 	uiTab *outerTab;
 	uiTab *innerTab;
 	int nomenus = 0;
 	int startspaced = 0;
+	int steps = 0;
 
 	newhbox = uiNewHorizontalBox;
 	newvbox = uiNewVerticalBox;
@@ -66,7 +68,9 @@ int main(int argc, char *argv[])
 		else if (strcmp(argv[i], "swaphv") == 0) {
 			newhbox = uiNewVerticalBox;
 			newvbox = uiNewHorizontalBox;
-		} else {
+		} else if (strcmp(argv[i], "steps") == 0)
+			steps = 1;
+		else {
 			fprintf(stderr, "%s: unrecognized option %s\n", argv[0], argv[i]);
 			return 1;
 		}
@@ -148,11 +152,20 @@ int main(int argc, char *argv[])
 	page14 = makePage14();
 	uiTabAppend(innerTab, "Page 14", uiControl(page14));
 
+	page15 = makePage15(w);
+	uiTabAppend(innerTab, "Page 15", uiControl(page15));
+
 	if (startspaced)
 		setSpaced(1);
 
 	uiControlShow(uiControl(w));
-	uiMain();
+	if (!steps)
+		uiMain();
+	else {
+		uiMainSteps();
+		while (uiMainStep(1))
+			;
+	}
 	printf("after uiMain()\n");
 	uiUninit();
 	printf("after uiUninit()\n");
